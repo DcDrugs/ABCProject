@@ -4,14 +4,6 @@ LD=g++
 CFLAGS=-g -Wall
 LDFLAGS=
 
-ifeq ($(UNAME_S), Darwin)
-    MEMCHECK=valgrind --tool=memcheck --leak-check=full --track-origins=yes --dsymutil=yes
-endif
-
-ifeq ($(UNAME_S), Linux)
-    MEMCHECK=valgrind --tool=memcheck --leak-check=full --track-origins=yes
-endif
-
 BIT_OPS_OBJS = bit_ops.o test_bit_ops.o
 BIT_OPS_PROG = bit_ops
 
