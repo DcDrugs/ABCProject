@@ -4,6 +4,6 @@
 4. s(step into)
 5. c(continue)
 6. print <something>
-7. watch <local>
+7. display <local>
 8. info locals
 9. q
