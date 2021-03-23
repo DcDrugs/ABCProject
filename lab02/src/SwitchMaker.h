@@ -1,7 +1,19 @@
+#ifndef RISCV_SIM_SWITCHMAKER_H
+#define RISCV_SIM_SWITCHMAKER_H
+
 #include <unordered_map>
 #include <optional>
 #include <stdexcept>
 #include <utility>
+
+// namespace Creator
+// {
+//     template<typename TBase, typename T, typename... Args>
+//     static std::unique_ptr<TBase> CreateInstance(Args&&... args)
+//     {
+//         return std::unique_ptr<TBase>(new T(std::forward<Args>(args)...));
+//     }
+// }
 
 template<typename SwitchType, typename Compare>
 class SwitchMaker
@@ -21,12 +33,12 @@ class SwitchMaker
         }
 
         template<typename... Args>
-        auto CrateInstance(SwitchType type, Args&&... args)
+        auto DoOperation(SwitchType type, Args&&... args)
         {
             if(operation.count(type) != 0)
-                return operation[type]->CreateInstance(std::forward<Args>(args)...);
+                return (*operation[type])(std::forward<Args>(args)...);
             else if(defaultComp)
-                return (*defaultComp)->CreateInstance(std::forward<Args>(args)...);
+                return (**defaultComp)(std::forward<Args>(args)...);
             else
                 throw std::invalid_argument("Unknown type");
         }
@@ -36,12 +48,12 @@ class SwitchMaker
             defaultComp.emplace(move(comp));
         }
 
-        Compare& GetCompare(SwitchType type)
+        Compare& GetCompare(SwitchType type) const
         {
             return operation.at(type);
         }
 
-        Compare& GetDefaultCompare()
+        Compare& GetDefaultCompare() const
         {
             return *defaultComp;
         }
@@ -51,3 +63,6 @@ class SwitchMaker
         std::unordered_map<SwitchType, Compare> operation;
         std::optional<Compare> defaultComp;
 };
+
+
+#endif // RISCV_SIM_SWITCHMAKER_H
