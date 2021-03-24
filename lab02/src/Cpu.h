@@ -19,6 +19,7 @@ public:
 
     void ProcessInstruction()
     {
+<<<<<<< HEAD
         auto instr = _decoder.Decode(_mem.Request(_ip));
         _rf.Read(instr);
         _csrf.Read(instr);
@@ -28,6 +29,9 @@ public:
         _csrf.Write(instr);
         _csrf.InstructionExecuted();
         _ip = instr->_nextIp;
+=======
+        /* YOUR CODE HERE */
+>>>>>>> 288a0d4e7794452fa1c5e2203d20a995068bda9c
     }
 
     void Reset(Word ip)

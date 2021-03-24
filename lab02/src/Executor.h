@@ -3,10 +3,13 @@
 #define RISCV_SIM_EXECUTOR_H
 
 #include "Instruction.h"
+<<<<<<< HEAD
 #include <memory>
 #include <unordered_map>
 #include <math.h>
 #include <limits>
+=======
+>>>>>>> 288a0d4e7794452fa1c5e2203d20a995068bda9c
 
 class Executor
 {
@@ -16,7 +19,6 @@ public:
         DoAlu(instr, ip);
         ChangeAddress(instr, ip);
     }
-
 private:
 
     void DoAlu(InstructionPtr& instr, Word ip)

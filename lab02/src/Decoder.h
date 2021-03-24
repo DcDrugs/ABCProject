@@ -27,6 +27,7 @@ public:
                               (decoded.j.imm11 << 11u) | (decoded.j.imm10_1 << 1u),
                               20);
 
+
         InstructionContainer container 
             = { immB, immI, immJ, immS, immU, decoded, instr};
 
@@ -200,6 +201,11 @@ private:
             }
 
             void operator()(InstructionPtr& instr, Imm immI, DecodedInstr decoded)
+
+        switch (static_cast<Opcode>(decoded.i.opcode))
+        {
+            case Opcode::OpImm:
+
             {
                 instr->_imm = immI;
                 instr->_type = IType::Alu;
@@ -227,6 +233,9 @@ private:
             }
 
             void operator()(InstructionPtr& instr, DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Op:
             {
                 instr->_type = IType::Alu;
                 auto funct3 = AluFunc(decoded.r.funct3);
@@ -245,7 +254,7 @@ private:
                 instr->_dst = RId(decoded.r.rd);
                 instr->_src1 = RId(decoded.r.rs1);
                 instr->_src2 = RId(decoded.r.rs2);
-            }
+	}
 
         private:
 
@@ -266,6 +275,9 @@ private:
 
             void operator()(InstructionPtr& instr, Word immU,
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Lui:
             {
                 instr->_type = IType::Alu;
                 instr->_aluFunc = AluFunc::Add;
@@ -290,6 +302,9 @@ private:
 
             void  operator()(InstructionPtr& instr, Word immU,
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Auipc:
             {
                 instr->_type = IType::Auipc;
                 instr->_dst = RId(decoded.u.rd);
@@ -313,6 +328,9 @@ private:
 
             void operator()(InstructionPtr& instr, Imm immJ,
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Jal:
             {
                 instr->_type = IType::J;
                 instr->_brFunc = BrFunc::AT;
@@ -338,6 +356,9 @@ private:
 
             void operator()(InstructionPtr& instr, Imm immI,
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Jalr:
             {
                 instr->_type = IType::Jr;
                 instr->_brFunc = BrFunc::AT;
@@ -362,6 +383,9 @@ private:
 
             void operator()(InstructionPtr& instr, Imm immB,
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Branch:
             {
                 instr->_type = IType::Br;
                 instr->_brFunc = static_cast<BrFunc>(decoded.b.funct3);
@@ -385,6 +409,9 @@ private:
 
             void operator()(InstructionPtr& instr,  Imm immI,
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Load:
             {
                 instr->_type = decoded.i.funct3 == fnLW ? IType::Ld : IType::Unsupported;
                 instr->_aluFunc = AluFunc::Add;
@@ -411,6 +438,9 @@ private:
 
             void operator()(InstructionPtr& instr, Imm immS, 
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::Store:
             {
                 instr->_type = decoded.i.funct3 == fnSW ? IType::St : IType::Unsupported;
                 instr->_aluFunc = AluFunc::Add;
@@ -435,6 +465,9 @@ private:
 
             void operator()(InstructionPtr& instr, Imm immI,
                 DecodedInstr decoded)
+                break;
+            }
+            case Opcode::System:
             {
                 if (decoded.i.funct3 == fnCSRRW && decoded.i.rd == 0)
                 {
@@ -465,6 +498,12 @@ private:
             }
 
             void operator()(InstructionPtr& instr)
+                break;
+            }
+            // LR SC FENCE AMO not implemented
+            case Opcode::MiscMem:
+            case Opcode::Amo:
+            default:
             {
                 instr->_type = IType::Unsupported;
                 instr->_aluFunc = AluFunc::None;
@@ -518,6 +557,80 @@ private:
 
     };
   
+        }
+
+        if (instr->_dst.value_or(0) == 0)
+            instr->_dst.reset();
+
+        return instr;
+    }
+
+private:
+    using Imm = int32_t;
+
+    Imm SignExtend(Imm i, unsigned sbit)
+    {
+        return i + ((0xffffffff << (sbit + 1)) * ((i & (1u << sbit)) >> sbit));
+    }
+    union DecodedInstr
+    {
+        Word instr;
+        struct rType
+        {
+            uint32_t opcode : 7;
+            uint32_t rd : 5;
+            uint32_t funct3 : 3;
+            uint32_t rs1 : 5;
+            uint32_t rs2 : 5;
+            uint32_t reserved1 : 5;
+            uint32_t aluSel : 1;
+            uint32_t reserved2 : 1;
+        } r;
+        struct iType
+        {
+            uint32_t opcode : 7;
+            uint32_t rd : 5;
+            uint32_t funct3 : 3;
+            uint32_t rs1 : 5;
+            uint32_t imm11_0 : 12;
+        } i;
+        struct sType
+        {
+            uint32_t opcode : 7;
+            uint32_t imm4_0 : 5;
+            uint32_t funct3 : 3;
+            uint32_t rs1 : 5;
+            uint32_t rs2 : 5;
+            uint32_t imm11_5 : 7;
+        } s;
+        struct bType
+        {
+            uint32_t opcode : 7;
+            uint32_t imm11 : 1;
+            uint32_t imm4_1 : 4;
+            uint32_t funct3 : 3;
+            uint32_t rs1 : 5;
+            uint32_t rs2 : 5;
+            uint32_t imm10_5 : 6;
+            uint32_t imm12 : 1;
+        } b;
+        struct uType
+        {
+            uint32_t opcode : 7;
+            uint32_t rd : 5;
+            uint32_t imm31_12 : 20;
+        } u;
+        struct jType
+        {
+            uint32_t opcode : 7;
+            uint32_t rd : 5;
+            uint32_t imm19_12 : 8;
+            uint32_t imm11 : 1;
+            uint32_t imm10_1 : 10;
+            uint32_t imm20 : 1;
+        } j;
+
+    };
 };
 
 #endif //RISCV_SIM_DECODER_H

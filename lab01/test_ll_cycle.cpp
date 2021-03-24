@@ -50,7 +50,11 @@ int main(void) {
     std::cout << "Тест 5. Циклов нет. Результат ll_has_cycle: " << std::boolalpha << ll_has_cycle(&nodes[19]) << std::endl;
 
     is_correct = is_correct && !ll_has_cycle(nullptr);
+<<<<<<< HEAD
     std::cout << "Тест 5. Циклов нет. Результат ll_has_cycle: " << std::boolalpha << ll_has_cycle(nullptr) << std::endl;
+=======
+    std::cout << "Тест 6. Циклов нет. Результат ll_has_cycle: " << std::boolalpha << ll_has_cycle(nullptr) << std::endl;
+>>>>>>> 288a0d4e7794452fa1c5e2203d20a995068bda9c
 
     std::cout << (is_correct ? "Успех\n": "Провал\n");
     return is_correct ? 0 : 1;

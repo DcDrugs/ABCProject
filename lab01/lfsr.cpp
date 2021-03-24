@@ -1,6 +1,7 @@
 #include <iostream>
 #include "lfsr.h"
 
+<<<<<<< HEAD
 
 unsigned get_bit(uint16_t x,
                  unsigned n) {

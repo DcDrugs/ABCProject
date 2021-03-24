@@ -1,4 +1,5 @@
 #include "ll_cycle.h"
+<<<<<<< HEAD
 #define NULL 0
 
 bool ll_has_cycle(node *head) {
@@ -17,4 +18,10 @@ bool ll_has_cycle(node *head) {
     	i++;
     }
     return false;
+=======
+
+bool ll_has_cycle(node *head) {
+    /* Ваш код должен быть написан только внутри этой функции */
+    return true;
+>>>>>>> 288a0d4e7794452fa1c5e2203d20a995068bda9c
 }
