@@ -3,13 +3,11 @@
 #define RISCV_SIM_EXECUTOR_H
 
 #include "Instruction.h"
-<<<<<<< HEAD
 #include <memory>
 #include <unordered_map>
 #include <math.h>
 #include <limits>
-=======
->>>>>>> 288a0d4e7794452fa1c5e2203d20a995068bda9c
+
 
 class Executor
 {
@@ -24,10 +22,10 @@ private:
     void DoAlu(InstructionPtr& instr, Word ip)
     {
         Word res = 0;
-        if(instr->_src1 && (instr->_src2 || instr->_imm))
+        if(instr->_src1)
         {
             res = GetOperation.at(instr->_aluFunc)(instr->_src1Val, 
-                (instr->_imm)? instr->_imm.value() : instr->_src2Val );
+                instr->_imm.value_or(instr->_src2Val) );
             if(instr->_type == IType::Ld || instr->_type == IType::St)
             {
                 instr->_addr = res;
@@ -38,11 +36,8 @@ private:
 
     void ChangeAddress(InstructionPtr& instr, Word ip)
     {
-        if((instr->_type == IType::Br || instr->_type == IType::J) 
-            && GetTransition.at(instr->_brFunc)(instr))
-            instr->_nextIp = GetChangeAdress.at(instr->_type)(instr, ip);
-        else if(instr->_type == IType::Jr && GetTransition.at(instr->_brFunc)(instr))
-                instr->_nextIp = instr->_src1Val + instr->_imm.value();
+        if(GetTransition.at(instr->_brFunc)(instr) && GetChangeAddress.count(instr->_type))
+            instr->_nextIp = GetChangeAddress.at(instr->_type)(instr, ip);
         else
             instr->_nextIp = ip + 4;
     }
@@ -83,9 +78,10 @@ private:
                 {AluFunc::Sra, GetSra} 
             };
 
-     const std::unordered_map<IType, Word(*)(InstructionPtr& instr, Word ip)> GetChangeAdress = {
+     const std::unordered_map<IType, Word(*)(InstructionPtr& instr, Word ip)> GetChangeAddress = {
                 {IType::J, GetBrAndJ},
-                {IType::Br, GetBrAndJ}
+                {IType::Br, GetBrAndJ},
+                {IType::Jr, GetJr}
             };
 
     static Word GetDefault(InstructionPtr& instr, Word ip, Word res)
@@ -110,7 +106,7 @@ private:
 
     static Word GetJorJr(InstructionPtr& instr, Word ip, Word tmp)
     {
-        return ip + 4;
+        return ip + 4u;
     }
 
     static Word GetAuipc(InstructionPtr& instr, Word ip, Word tmp)
@@ -186,9 +182,8 @@ private:
 
     static Word GetSlt(Word first, Word second)
     {
-        int32_t resF =  static_cast<int32_t>(first);
-        int32_t resS = static_cast<int32_t>(second);
-        return resF < resS;
+        return static_cast<int32_t>(first) < 
+                static_cast<int32_t>(second);
     }
 
     static Word GetSltu(Word first, Word second)
@@ -198,26 +193,27 @@ private:
 
     static Word GetSll(Word first, Word second)
     {
-        Word thrid = second % 32;
-        return first << thrid;
+        return first << (second % 32);
     }
 
-    static Word GetSrl(Word first, Word second)         // исправить
+    static Word GetSrl(Word first, Word second)
     {
-        Word thrid = second % 32;
-        int32_t res = static_cast<int32_t>(first);
-        return res >> thrid;
+        return first >> (second % 32);
     }
 
     static Word GetSra(Word first, Word second)
     {
-        Word thrid = second % 32;
-        return first >> thrid;
+        return static_cast<int32_t>(first)>> (second % 32);
     }
 
     static Word GetBrAndJ(InstructionPtr& instr, Word ip)
     {
         return  ip + instr->_imm.value();
+    }
+
+    static Word GetJr(InstructionPtr& instr, Word ip)
+    {
+        return instr->_src1Val + instr->_imm.value();
     }
 };
 

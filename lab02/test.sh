@@ -28,7 +28,7 @@ SOFTWARE_SOCKET_NAME=/tmp/connectal$USER
 export SOFTWARE_SOCKET_NAME
 
 log_dir=logs
-wait_time=3
+wait_time=0.3
 
 # create bsim log dir
 mkdir -p ${log_dir}

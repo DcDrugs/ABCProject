@@ -221,8 +221,16 @@ TEST_SUITE("Decoder"){
             CHECK(instruction->_type == IType::Jr);
         }
     }
-
-    /* YOUR CODE HERE */
+    TEST_CASE("Task6"){
+        SUBCASE("BLT"){
+            auto instruction = _decoder.Decode(0b0'000000'01100'01011'100'0110'0'1100011);
+            CHECK(instruction->_type == IType::Br);
+            CHECK(instruction->_brFunc == BrFunc::Lt);
+            CHECK(instruction->_src1.value() == 11);
+            CHECK(instruction->_src2.value() == 12);
+            CHECK(instruction->_imm.value() == IMM_SB);
+        }
+    }
 }
 
 void testBranch(InstructionPtr &instruction){

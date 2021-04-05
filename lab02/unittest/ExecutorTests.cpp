@@ -236,7 +236,16 @@ TEST_SUITE("Executor"){
 
         }
     }
-    /* YOUR CODE HERE */
+    
+    TEST_CASE("Task6"){
+        SUBCASE("BLT"){
+            auto instruction = _decoder.Decode(0b0'000000'01100'01011'100'0111'0'1100011);
+            instruction->_src1Val = 11;
+            instruction->_src2Val = 12;
+            _exe.Execute(instruction, IP);
+            CHECK(instruction->_nextIp == IP + instruction->_imm.value());
+        }
+    }
 }
 
 void testAlu(InstructionPtr &instruction, Executor &exe){

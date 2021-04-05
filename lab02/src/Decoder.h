@@ -16,23 +16,7 @@ public:
 
         DecodedInstr decoded{data};
 
-        InstructionPtr instr = std::make_unique<Instruction>();
-        Imm immI = SignExtend(decoded.i.imm11_0, 11);
-        Imm immS = SignExtend(decoded.s.imm11_5 << 5u | decoded.s.imm4_0, 11);
-        Word immU = decoded.u.imm31_12 << 12u;
-        Imm immB = SignExtend((decoded.b.imm12 << 12u) | (decoded.b.imm11 << 11u) |
-                              (decoded.b.imm10_5 << 5u) | (decoded.b.imm4_1 << 1u),
-                              12);
-        Imm immJ = SignExtend((decoded.j.imm20 << 20u) | (decoded.j.imm19_12 << 12u) |
-                              (decoded.j.imm11 << 11u) | (decoded.j.imm10_1 << 1u),
-                              20);
-
-
-        InstructionContainer container 
-            = { immB, immI, immJ, immS, immU, decoded, instr};
-
-        Opcode type = static_cast<Opcode>(decoded.i.opcode);
-        (*sMaker).DoOperation(type, container);
+        auto instr = (*sMaker).DoOperation(static_cast<Opcode>(decoded.i.opcode), decoded);
         
 
         if (instr->_dst.value_or(0) == 0)
@@ -80,7 +64,7 @@ private:
 
     static _SwitchMaker inline sMaker = _SwitchMaker();
 
-    Imm SignExtend(Imm i, unsigned sbit)
+    static Imm SignExtend(Imm i, unsigned sbit)
     {
         return i + ((0xffffffff << (sbit + 1)) * ((i & (1u << sbit)) >> sbit));
     }
@@ -148,20 +132,6 @@ private:
 
     };
 
-
-
-    struct InstructionContainer
-    {   
-        using Imm = int32_t;
-        Imm immB;
-        Imm immI;
-        Imm immJ;
-        Imm immS;
-        Word immU;
-        DecodedInstr decoded;
-        InstructionPtr& instr;
-    };
-
     class InstructionMaker
     {
         public:
@@ -175,10 +145,44 @@ private:
                 return type;
             }
 
-            void virtual operator()(InstructionContainer container) = 0;
+            InstructionPtr virtual operator()(DecodedInstr decoded) = 0;
 
         protected:
             Opcode type;
+
+            InstructionPtr GetNewInstraction()
+            {
+                return std::make_unique<Instruction>();
+            }
+
+            Imm GetimmI(DecodedInstr decoded)
+            {
+                return SignExtend(decoded.i.imm11_0, 11);
+            }
+
+            Imm GetimmS(DecodedInstr decoded)
+            {
+                return SignExtend(decoded.s.imm11_5 << 5u | decoded.s.imm4_0, 11);
+            }
+
+            Word GetimmU(DecodedInstr decoded)
+            {
+                return decoded.u.imm31_12 << 12u;
+            }
+
+            Imm GetimmB(DecodedInstr decoded)
+            {
+                return SignExtend((decoded.b.imm12 << 12u) | (decoded.b.imm11 << 11u) |
+                              (decoded.b.imm10_5 << 5u) | (decoded.b.imm4_1 << 1u),
+                              12);
+            }
+
+            Imm GetimmJ(DecodedInstr decoded)
+            {
+                return SignExtend((decoded.j.imm20 << 20u) | (decoded.j.imm19_12 << 12u) |
+                              (decoded.j.imm11 << 11u) | (decoded.j.imm10_1 << 1u),
+                              20);
+            }
     };
 
     template<typename T, typename... Args>
@@ -195,19 +199,10 @@ private:
             
             OpImmMaker() : InstructionMaker(Opcode::OpImm) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immI, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr, Imm immI, DecodedInstr decoded)
-
-        switch (static_cast<Opcode>(decoded.i.opcode))
-        {
-            case Opcode::OpImm:
-
-            {
-                instr->_imm = immI;
+                auto instr = GetNewInstraction();
+                instr->_imm = GetimmI(decoded);
                 instr->_type = IType::Alu;
                 instr->_aluFunc = static_cast<AluFunc>(decoded.i.funct3);
                 if (instr->_aluFunc == AluFunc::Sr)
@@ -217,6 +212,7 @@ private:
                 }
                 instr->_dst = RId(decoded.i.rd);
                 instr->_src1 = RId(decoded.i.rs1);
+                return instr;
             }
     };
 
@@ -227,16 +223,9 @@ private:
 
             OpMaker() : InstructionMaker(Opcode::Op) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr, DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Op:
-            {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::Alu;
                 auto funct3 = AluFunc(decoded.r.funct3);
                 if (funct3 == AluFunc::Add)
@@ -254,11 +243,9 @@ private:
                 instr->_dst = RId(decoded.r.rd);
                 instr->_src1 = RId(decoded.r.rs1);
                 instr->_src2 = RId(decoded.r.rs2);
-	}
+                return instr;
+	        }
 
-        private:
-
-            DecodedInstr decoded;
     };
 
 
@@ -268,25 +255,16 @@ private:
 
             LuiMaker() : InstructionMaker(Opcode::Lui) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immU, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr, Word immU,
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Lui:
-            {
-                instr->_type = IType::Alu;
+                auto instr = GetNewInstraction();
+                 instr->_type = IType::Alu;
                 instr->_aluFunc = AluFunc::Add;
                 instr->_dst = RId(decoded.u.rd);
                 instr->_src1 = 0;
-                instr->_imm = immU;
+                instr->_imm = GetimmU(decoded);
+                return instr;
             }
-
-        private:
     };
 
     class AuipcMaker : public InstructionMaker
@@ -295,20 +273,13 @@ private:
             
             AuipcMaker() : InstructionMaker(Opcode::Auipc) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immU, container.decoded);
-            }
-
-            void  operator()(InstructionPtr& instr, Word immU,
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Auipc:
-            {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::Auipc;
                 instr->_dst = RId(decoded.u.rd);
-                instr->_imm = immU;
+                instr->_imm = GetimmU(decoded);
+                return instr;
             }
 
         private:
@@ -321,21 +292,14 @@ private:
             
             JalMaker() : InstructionMaker(Opcode::Jal){}
             
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immJ, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr, Imm immJ,
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Jal:
-            {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::J;
                 instr->_brFunc = BrFunc::AT;
                 instr->_dst = RId(decoded.j.rd);
-                instr->_imm = immJ;
+                instr->_imm = GetimmJ(decoded);
+                return instr;
             }
 
         private:
@@ -349,22 +313,15 @@ private:
             
             JalrMaker() : InstructionMaker(Opcode::Jalr) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immI, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr, Imm immI,
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Jalr:
-            {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::Jr;
                 instr->_brFunc = BrFunc::AT;
                 instr->_dst = RId(decoded.i.rd);
                 instr->_src1 = RId(decoded.i.rs1);
-                instr->_imm = immI;
+                instr->_imm = GetimmI(decoded);
+                return instr;
             }
     };
 
@@ -376,22 +333,15 @@ private:
             
             BranchMaker() : InstructionMaker(Opcode::Branch) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immB, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr, Imm immB,
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Branch:
-            {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::Br;
                 instr->_brFunc = static_cast<BrFunc>(decoded.b.funct3);
                 instr->_src1 = RId(decoded.b.rs1);
                 instr->_src2 = RId(decoded.b.rs2);
-                instr->_imm = immB;
+                instr->_imm = GetimmB(decoded);
+                return instr;
             }
     };
 
@@ -402,22 +352,15 @@ private:
             
             LoadMaker() : InstructionMaker(Opcode::Load) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immI, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr,  Imm immI,
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Load:
-            {
+                auto instr = GetNewInstraction();
                 instr->_type = decoded.i.funct3 == fnLW ? IType::Ld : IType::Unsupported;
                 instr->_aluFunc = AluFunc::Add;
                 instr->_dst = RId(decoded.i.rd);
                 instr->_src1 = RId(decoded.i.rs1);
-                instr->_imm = immI;
+                instr->_imm = GetimmI(decoded);
+                return instr;
             }
 
     };
@@ -430,23 +373,15 @@ private:
             
             StoreMaker() : InstructionMaker(Opcode::Store) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immS, container.decoded);
-            }
-
-
-            void operator()(InstructionPtr& instr, Imm immS, 
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::Store:
-            {
+                auto instr = GetNewInstraction();
                 instr->_type = decoded.i.funct3 == fnSW ? IType::St : IType::Unsupported;
                 instr->_aluFunc = AluFunc::Add;
                 instr->_src1 = RId(decoded.s.rs1);
                 instr->_src2 = RId(decoded.s.rs2);
-                instr->_imm = immS;
+                instr->_imm = GetimmS(decoded);
+                return instr;
             }
     };
 
@@ -458,17 +393,9 @@ private:
             
             SystemMaker() : InstructionMaker(Opcode::System) {}
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr, container.immI, container.decoded);
-            }
-
-            void operator()(InstructionPtr& instr, Imm immI,
-                DecodedInstr decoded)
-                break;
-            }
-            case Opcode::System:
-            {
+                auto instr = GetNewInstraction();
                 if (decoded.i.funct3 == fnCSRRW && decoded.i.rd == 0)
                 {
                     instr->_type = IType::Csrw;
@@ -479,7 +406,8 @@ private:
                 }
                 instr->_dst = RId(decoded.i.rd);
                 instr->_src1 = RId(decoded.i.rs1);
-                instr->_csr = static_cast<CsrIdx>(immI & 0xfff);
+                instr->_csr = static_cast<CsrIdx>(GetimmI(decoded) & 0xfff);
+                return instr;
             }
 
     };
@@ -492,22 +420,18 @@ private:
             {
             }
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr);
+                return (*this)();
             }
 
-            void operator()(InstructionPtr& instr)
-                break;
-            }
-            // LR SC FENCE AMO not implemented
-            case Opcode::MiscMem:
-            case Opcode::Amo:
-            default:
+            InstructionPtr operator()()
             {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::Unsupported;
                 instr->_aluFunc = AluFunc::None;
                 instr->_brFunc = BrFunc::NT;
+                return instr;
             }
 
     };
@@ -521,16 +445,18 @@ private:
             {
             }
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr);
+                return (*this)();
             }
 
-            void operator()(InstructionPtr& instr)
+            InstructionPtr operator()()
             {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::Unsupported;
                 instr->_aluFunc = AluFunc::None;
                 instr->_brFunc = BrFunc::NT;
+                return instr;
             }
 
     };
@@ -543,93 +469,19 @@ private:
             {
             }
 
-            void operator()(InstructionContainer container) override
+            InstructionPtr operator()(DecodedInstr decoded) override
             {
-                (*this)(container.instr);
+                return (*this)();
             }
 
-            void operator()(InstructionPtr& instr)
+            InstructionPtr operator()()
             {
+                auto instr = GetNewInstraction();
                 instr->_type = IType::Unsupported;
                 instr->_aluFunc = AluFunc::None;
                 instr->_brFunc = BrFunc::NT;
+                return instr;
             }
-
-    };
-  
-        }
-
-        if (instr->_dst.value_or(0) == 0)
-            instr->_dst.reset();
-
-        return instr;
-    }
-
-private:
-    using Imm = int32_t;
-
-    Imm SignExtend(Imm i, unsigned sbit)
-    {
-        return i + ((0xffffffff << (sbit + 1)) * ((i & (1u << sbit)) >> sbit));
-    }
-    union DecodedInstr
-    {
-        Word instr;
-        struct rType
-        {
-            uint32_t opcode : 7;
-            uint32_t rd : 5;
-            uint32_t funct3 : 3;
-            uint32_t rs1 : 5;
-            uint32_t rs2 : 5;
-            uint32_t reserved1 : 5;
-            uint32_t aluSel : 1;
-            uint32_t reserved2 : 1;
-        } r;
-        struct iType
-        {
-            uint32_t opcode : 7;
-            uint32_t rd : 5;
-            uint32_t funct3 : 3;
-            uint32_t rs1 : 5;
-            uint32_t imm11_0 : 12;
-        } i;
-        struct sType
-        {
-            uint32_t opcode : 7;
-            uint32_t imm4_0 : 5;
-            uint32_t funct3 : 3;
-            uint32_t rs1 : 5;
-            uint32_t rs2 : 5;
-            uint32_t imm11_5 : 7;
-        } s;
-        struct bType
-        {
-            uint32_t opcode : 7;
-            uint32_t imm11 : 1;
-            uint32_t imm4_1 : 4;
-            uint32_t funct3 : 3;
-            uint32_t rs1 : 5;
-            uint32_t rs2 : 5;
-            uint32_t imm10_5 : 6;
-            uint32_t imm12 : 1;
-        } b;
-        struct uType
-        {
-            uint32_t opcode : 7;
-            uint32_t rd : 5;
-            uint32_t imm31_12 : 20;
-        } u;
-        struct jType
-        {
-            uint32_t opcode : 7;
-            uint32_t rd : 5;
-            uint32_t imm19_12 : 8;
-            uint32_t imm11 : 1;
-            uint32_t imm10_1 : 10;
-            uint32_t imm20 : 1;
-        } j;
-
     };
 };
 
